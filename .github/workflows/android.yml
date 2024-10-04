@@ -1,66 +1,38 @@
-name: Flutter APK Release
+name: Android-apk-build
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
-  build:
-    name: Build APK
+  build-android:
+    name: 🎉 Android Build
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v3
 
     - name: Set up Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: 'latest'
+        channel: 'stable'
+        architecture: x64
 
     - name: Install dependencies
       run: flutter pub get
 
+    # Build the release APK
     - name: Build APK
       run: flutter build apk --release
 
-    - name: Upload APK
-      uses: actions/upload-artifact@v3
+    # Optionally, if you are using app bundles (.aab)
+    # - name: Build Android App Bundle (AAB)
+    #   run: flutter build appbundle --release
+
+    - name: Upload APK to GitHub Release
+      uses: svenstaro/upload-release-action@v2
       with:
-        name: app-release.apk
-        path: build/app/outputs/flutter-apk/app-release.apk
-
-  release:
-    name: Create GitHub Release and Upload APK
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-
-    - name: Set up Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: 'latest'
-
-    - name: Build APK
-      run: flutter build apk --release
-
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      with:
-        tag_name: v1.0.0  # You can dynamically set this to a version or tag
-        release_name: "Release v1.0.0"
-        draft: false
-        prerelease: false
-        generate_release_notes: true
-
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: build/app/outputs/flutter-apk/app-release.apk
-        asset_name: app-release.apk
-        asset_content_type: application/vnd.android.package-archive
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: build/app/outputs/flutter-apk/app-release.apk
+        tag: v1.0
+        overwrite: true
+        body: "This is the first Android APK release"
