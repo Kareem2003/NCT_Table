@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:dropdown_button2/dropdown_button2.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(MyApp());
 
@@ -17,19 +18,48 @@ class MyApp extends StatelessWidget {
           bodyMedium: TextStyle(fontSize: 16, color: Colors.grey[600]),
         ),
       ),
-      home: Step1Screen(),
+      home: HomeScreen(),
     );
   }
 }
 
-// Step 1: Department Selection Screen
-class Step1Screen extends StatefulWidget {
+// Home Screen: Department Selection Screen
+class HomeScreen extends StatefulWidget {
   @override
-  _Step1ScreenState createState() => _Step1ScreenState();
+  _HomeScreenState createState() => _HomeScreenState();
 }
 
-class _Step1ScreenState extends State<Step1Screen> {
-  String department = 'Software';
+class _HomeScreenState extends State<HomeScreen> {
+  String department = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDepartment(); // Load saved department
+  }
+
+  // Load saved department from SharedPreferences
+  _loadDepartment() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      department = prefs.getString('selectedDepartment') ?? '';
+      if (department.isNotEmpty) {
+        // Navigate to ScheduleScreen if a department is already saved
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ScheduleScreen(department: department),
+          ),
+        );
+      }
+    });
+  }
+
+  // Save selected department to SharedPreferences
+  _saveDepartment(String dept) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setString('selectedDepartment', dept);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +87,7 @@ class _Step1ScreenState extends State<Step1Screen> {
                   onPressed: () {
                     setState(() {
                       department = 'Software';
+                      _saveDepartment(department); // Save department when selected
                     });
                   },
                   child: Text('Software', style: Theme.of(context).textTheme.bodyLarge),
@@ -73,6 +104,7 @@ class _Step1ScreenState extends State<Step1Screen> {
                   onPressed: () {
                     setState(() {
                       department = 'Network';
+                      _saveDepartment(department); // Save department when selected
                     });
                   },
                   child: Text('Network', style: Theme.of(context).textTheme.bodyLarge),
@@ -89,24 +121,17 @@ class _Step1ScreenState extends State<Step1Screen> {
                 elevation: 5,
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
-              onPressed: () {
-                if (department == 'Network') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => Step3Screen(department: department, section: '3'),
-                    ),
-                  );
-                } else {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => Step2Screen(department: department),
-                    ),
-                  );
-                }
-              },
-              child: Text('Next', style: Theme.of(context).textTheme.bodyLarge),
+              onPressed: department.isNotEmpty
+                  ? () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ScheduleScreen(department: department),
+                        ),
+                      );
+                    }
+                  : null, // Disable button if no department is selected
+              child: Text('Show Schedule', style: Theme.of(context).textTheme.bodyLarge),
             ),
           ],
         ),
@@ -114,404 +139,58 @@ class _Step1ScreenState extends State<Step1Screen> {
     );
   }
 }
-// Step 2: Section Selection Screen
-class Step2Screen extends StatefulWidget {
+
+// Schedule Screen: Display Schedule
+class ScheduleScreen extends StatefulWidget {
   final String department;
 
-  Step2Screen({required this.department});
+  ScheduleScreen({required this.department});
 
   @override
-  _Step2ScreenState createState() => _Step2ScreenState();
+  _ScheduleScreenState createState() => _ScheduleScreenState();
 }
 
-class _Step2ScreenState extends State<Step2Screen> {
-  String? section;
+class _ScheduleScreenState extends State<ScheduleScreen> {
+  late String selectedDay;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Select Section')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0), // Added padding for consistency
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text('Select Section',
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineLarge), // Updated text style
-            SizedBox(height: 20),
-            DropdownButton<String>(
-              isExpanded: true,
-              hint: Text('Select Section',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium), // Updated hint style
-              value: section,
-              items: [
-                DropdownMenuItem(value: '1', child: Text('1')),
-                DropdownMenuItem(value: '2', child: Text('2')),
-                if (widget.department == 'Network')
-                  DropdownMenuItem(value: '3', child: Text('3')),
-              ],
-              onChanged: (value) {
-                setState(() {
-                  section = value;
-                });
-              },
-            ),
-            SizedBox(height: 40),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue, // Consistent button color
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 5,
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  ),
-                  onPressed: section != null
-                      ? () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => Step3Screen(
-                                department: widget.department,
-                                section: section!,
-                              ),
-                            ),
-                          );
-                        }
-                      : null,
-                  child: Text('Show Schedule',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyLarge), // Updated button text style
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+  void initState() {
+    super.initState();
+    selectedDay = DateFormat('EEEE').format(DateTime.now()); // Initialize with current day
   }
-}
-// Mocked schedule data
-List<Map<String, dynamic>> tableData = [
-  {
-    'Saturday': [
-      {
-        'from': "09:50 AM",
-        'to': "11:40 AM",
-        'type': "Lecture",
-        'instructor': "Dr Rehab",
-        'subject': "IoT Architecture & Protocols/IoT Programming",
-        'location': "B 201",
-        'section': ["1", "2", "3"],
-        'department': ["Software", "Network"],
-      },
-      {
-        'from': "11:40 AM",
-        'to': "01:50 PM",
-        'type': "Lecture",
-        'instructor': "Dr Mohamed Hassan",
-        'subject': "CCNA R&S",
-        'location': "B 201",
-        'section': ["1", "2"],
-        'department': ["Software"],
-      },
-      {
-        'from': "11:40 AM",
-        'to': "01:50 PM",
-        'type': "Lecture",
-        'instructor': "Dr Rehab",
-        'subject': "Server Administration",
-        'location': "A 302",
-        'section': ["3"],
-        'department': ["Network"],
-      },
-    ],
-    'Sunday': [
-      {
-        'from': "09:00 AM",
-        'to': "10:40 AM",
-        'type': "Section",
-        'instructor': "Eng. Moamen",
-        'subject': "Server Administration",
-        'location': "A 201",
-        'section': ["3"],
-        'department': ["Network"],
-      },
-      {
-        'from': "10:50 AM",
-        'to': "12:30 PM",
-        'type': "Section",
-        'instructor': "Eng. Eman Osama",
-        'subject': "Encryption Algorithm",
-        'location': "A 208",
-        'section': ["3"],
-        'department': ["Network"],
-      },
-      {
-        'from': "01:00 AM",
-        'to': "02:40 AM",
-        'type': "Section",
-        'instructor': "Eng. Hager",
-        'subject': "CCNA Cybersecurity Operations",
-        'location': "A 201",
-        'section': ["3"],
-        'department': ["Network"],
-      },
-      {
-        'from': "02:50 AM",
-        'to': "04:30 AM",
-        'type': "Section",
-        'instructor': "Eng. Moamen",
-        'subject': "IoT Architecture & Protocols/IoT Programming",
-        'location': "A 202",
-        'section': ["3"],
-        'department': ["Network"],
-      },
-    ],
-    'Monday': [
-      {
-        'from': "09:00 AM",
-        'to': "10:40 AM",
-        'type': "Follow-up",
-        'subject': "Signal Processing",
-        'instructor': "Eng. moamen",
-        'location': "B 202",
-        'section': ["1", "2"],
-        'department': ["Software"],
-      },
-      {
-        'from': "10:50 AM",
-        'to': "12:30 PM",
-        'type': "Section",
-        'subject': "Windows Programming 1",
-        'instructor': "Eng. Eman Ahmed",
-        'location': "A 202",
-        'section': ["1"],
-        'department': ["Software"],
-      },
-      {
-        'from': "10:50 AM",
-        'to': "12:30 PM",
-        'type': "Section",
-        'subject': "CCNA R&S II",
-        'instructor': "Eng. Esraa",
-        'location': "A 201",
-        'section': ["2"],
-        'department': ["Software"],
-      },
-      {
-        'from': "01:50 PM",
-        'to': "02:40 PM",
-        'type': "Section",
-        'subject': "Windows Programming 1",
-        'instructor': "Eng. Eman Ahmed",
-        'location': "A 202",
-        'section': ["2"],
-        'department': ["Software"],
-      },
-      {
-        'from': "02:50 PM",
-        'to': "03:40 PM",
-        'type': "Lecture",
-        'subject': "Mobile Programming 2",
-        'instructor': "Dr. Rasha",
-        'location': "A 307",
-        'section': ["1", "2"],
-        'department': ["Software"],
-      },
-      {
-        'from': "03:40 PM",
-        'to': "04:30 PM",
-        'type': "Lecture",
-        'subject': "Windows Programming 1",
-        'instructor': "Dr. Eman Monire",
-        'location': "A 104",
-        'section': ["1", "2"],
-        'department': ["Software"],
-      },
-    ],
-    'Tuesday': [
-      {
-        'from': "10:50 AM",
-        'to': "12:30 PM",
-        'type': "Lecture",
-        'subject': "Signal Processing",
-        'instructor': "Dr. Amany AbdElsamea",
-        'location': "A 101",
-        'section': ["1", "2"],
-        'department': ["Software"],
-      },
-      {
-        'from': "10:50 AM",
-        'to': "12:30 PM",
-        'type': "Lecture",
-        'subject': "CCNA Cybersecurity Operations",
-        'instructor': "Dr. Osama",
-        'location': "A 302",
-        'section': ["3"],
-        'department': ["Network"],
-      },
-      {
-        'from': "01:00 PM",
-        'to': "02:40 PM",
-        'type': "Section",
-        'subject': "CCNA R&S II",
-        'instructor': "Eng. Esraa",
-        'location': "A 201",
-        'section': ["1"],
-        'department': ["Software"],
-      },
-      {
-        'from': "03:40 PM",
-        'to': "05:20 PM",
-        'type': "Lecture",
-        'subject': "Artificial Intelligence",
-        'instructor': "Dr. Rasha",
-        'location': "A 101",
-        'section': ["1", "2", "3"],
-        'department': ["Software", "Network"],
-      },
-    ],
-    'Wednesday': [
-      {
-        'from': "09:00 AM",
-        'to': "10:40 AM",
-        'type': "Section",
-        'subject': "Mobile Programming II",
-        'instructor': "Eng. Mohamed Hisham",
-        'location': "A 208",
-        'section': ["1"],
-        'department': ["Software"],
-      },
-      {
-        'from': "09:00 AM",
-        'to': "10:40 AM",
-        'type': "Section",
-        'subject': "IoT Architecture & Protocols/IoT Programming",
-        'instructor': "Eng. Moamen",
-        'location': "A 301",
-        'section': ["2"],
-        'department': ["Software"],
-      },
-      {
-        'from': "09:00 AM",
-        'to': "10:40 AM",
-        'type': "Section",
-        'subject': "CCNA R&S IV",
-        'instructor': "Eng. Esraa",
-        'location': "A 201",
-        'section': ["3"],
-        'department': ["Network"],
-      },
-      {
-        'from': "10:50 AM",
-        'to': "12:30 PM",
-        'type': "Section",
-        'subject': "IoT Architecture & Protocols/IoT Programming",
-        'instructor': "Eng. Moamen",
-        'location': "A 301",
-        'section': ["1"],
-        'department': ["Software"],
-      },
-      {
-        'from': "10:50 AM",
-        'to': "12:30 PM",
-        'type': "Section",
-        'subject': "Mobile Programming II",
-        'instructor': "Eng. Mohamed Hisham",
-        'location': "A 208",
-        'section': ["2"],
-        'department': ["Software"],
-      },
-      {
-        'from': "10:50 AM",
-        'to': "12:30 PM",
-        'type': "Lecture",
-        'subject': "Encryption Algorithm",
-        'instructor': "Dr. Ramy",
-        'location': "A 302",
-        'section': ["3"],
-        'department': ["Network"],
-      },
-      {
-        'from': "01:00 PM",
-        'to': "02:40 PM",
-        'type': "Follow-up",
-        'subject': "Artificial Intelligence",
-        'instructor': "Eng. Gehad",
-        'location': "A 101",
-        'section': ["1", "2", "3"],
-        'department': ["Software", "Network"],
-      },
-      {
-        'from': "02:50 PM",
-        'to': "04:30 PM",
-        'type': "Section",
-        'subject': "CCNA R&S IV",
-        'instructor': "Dr.mohamed hassan",
-        'location': "A 101",
-        'section': ["3"],
-        'department': ["Network"],
-      },
-    ],
-    'Thursday': [],
-    'Friday': [],
-  }
-];
 
-// Step 3: Schedule Display Screen
-class Step3Screen extends StatefulWidget {
-  final String department;
-  final String section;
-
-  Step3Screen({required this.department, required this.section});
-
-  @override
-  _Step3ScreenState createState() => _Step3ScreenState();
-}
-
-class _Step3ScreenState extends State<Step3Screen> {
-  String selectedDay = 'Saturday';
-
-  // Function to get the schedule for the selected day, department, and section
+  // Function to get the schedule for the selected day and department
   List<Map<String, dynamic>> getScheduleForDay(String day) {
-    // Check if there's any data for the selected day and avoid errors
     if (tableData.isNotEmpty && tableData.first.containsKey(day)) {
       var daySchedule = tableData.first[day] as List<dynamic>;
       if (daySchedule != null) {
-        // Filter based on department and section
         return daySchedule
-            .where((item) {
-          return item['department'] != null &&
-              item['section'] != null &&
-              item['department'].contains(widget.department) &&
-              item['section'].contains(widget.section);
-        })
+            .where((item) =>
+                item['department'] != null &&
+                item['department'].contains(widget.department))
             .cast<Map<String, dynamic>>()
             .toList();
       }
     }
-    // Return an empty list if there's no data for the selected day
     return [];
   }
 
   @override
   Widget build(BuildContext context) {
-    List<Map<String, String>> scheduleForSelectedDay =
-    getScheduleForDay(selectedDay).map((item) {
+    List<Map<String, String>> scheduleForSelectedDay = getScheduleForDay(selectedDay).map((item) {
       return item.map((key, value) => MapEntry(key, value.toString()));
     }).toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text('Schedule')),
+      appBar: AppBar(
+        title: Text('Schedule'),
+        leading: IconButton( // Add back navigation button
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context); // Navigate back to HomeScreen
+          },
+        ),
+      ),
       body: Column(
         children: <Widget>[
           Padding(
@@ -611,3 +290,210 @@ class _Step3ScreenState extends State<Step3Screen> {
     );
   }
 }
+
+// Mocked schedule data
+List<Map<String, dynamic>> tableData = [
+  {
+    'Saturday': [
+      {
+        'from': "09:50 AM",
+        'to': "11:40 AM",
+        'type': "Lecture",
+        'instructor': "Dr Rehab",
+        'subject': "IoT Architecture & Protocols/IoT Programming",
+        'location': "B 201",
+        'department': ["Software", "Network"],
+      },
+      {
+        'from': "11:40 AM",
+        'to': "01:50 PM",
+        'type': "Lecture",
+        'instructor': "Dr Mohamed Hassan",
+        'subject': "CCNA R&S",
+        'location': "B 201",
+        'department': ["Software"],
+      },
+      {
+        'from': "11:40 AM",
+        'to': "01:50 PM",
+        'type': "Lecture",
+        'instructor': "Dr Rehab",
+        'subject': "Server Administration",
+        'location': "A 302",
+        'department': ["Network"],
+      },
+    ],
+    'Sunday': [
+      {
+        'from': "09:00 AM",
+        'to': "10:40 AM",
+        'type': "Section",
+        'instructor': "Eng. Moamen",
+        'subject': "Server Administration",
+        'location': "A 201",
+        'department': ["Network"],
+      },
+      {
+        'from': "10:50 AM",
+        'to': "12:30 PM",
+        'type': "Section",
+        'instructor': "Eng. Esraa",
+        'subject': "CCNA R&S IV",
+        'location': "A 201",
+        'department': ["Network"],
+      },
+      {
+        'from': "01:00 AM",
+        'to': "02:40 AM",
+        'type': "Lecture",
+        'instructor': "Dr. Osama",
+        'subject': "CCNA Cybersecurity Operations",
+        'location': "A 201",
+        'department': ["Network"],
+      },
+      {
+        'from': "02:50 AM",
+        'to': "04:30 AM",
+        'type': "Section",
+        'instructor': "Eng. Moamen",
+        'subject': "IoT Architecture & Protocols/IoT Programming",
+        'location': "A 202",
+        'department': ["Network"],
+      },
+    ],
+    'Monday': [
+      {
+        'from': "10:50 AM",
+        'to': "12:30 PM",
+        'type': "Section",
+        'subject': "CCNA R&S II",
+        'instructor': "Eng. Esraa",
+        'location': "A 201",
+        'department': ["Software"],
+      },
+      {
+        'from': "01:00 PM",
+        'to': "02:40 PM",
+        'type': "Section",
+        'subject': "Windows Programming 1",
+        'instructor': "Eng. Eman Ahmed",
+        'location': "A 202",
+        'department': ["Software"],
+      },
+      {
+        'from': "02:50 PM",
+        'to': "03:40 PM",
+        'type': "Lecture",
+        'subject': "Windows Programming 1",
+        'instructor': "Dr. Eman Monire",
+        'location': "A 202",
+        'department': ["Software"],
+      },
+      {
+        'from': "03:40 PM",
+        'to': "04:30 PM",
+        'type': "Lecture",
+        'subject': "Mobile Programming 2",
+        'instructor': "Dr. Rasha",
+        'location': "A 104",
+        'department': ["Software"],
+      },
+    ],
+    'Tuesday': [
+      {
+        'from': "10:50 AM",
+        'to': "12:30 PM",
+        'type': "Lecture",
+        'subject': "Signal Processing",
+        'instructor': "Dr. Amany AbdElsamea",
+        'location': "A 101",
+        'department': ["Software"],
+      },
+      {
+        'from': "09:00 AM",
+        'to': "10:40 AM",
+        'type': "Section",
+        'subject': "CCNA Cybersecurity Operations",
+        'instructor': "Eng. Hager",
+        'location': "A 302",
+        'department': ["Network"],
+      },
+      {
+        'from': "02:50 PM",
+        'to': "04:30 PM",
+        'type': "Lecture",
+        'subject': "Artificial Intelligence",
+        'instructor': "Dr. Rasha",
+        'location': "A 101",
+        'department': ["Software", "Network"],
+      },
+    ],
+    'Wednesday': [
+      {
+        'from': "09:00 AM",
+        'to': "10:40 AM",
+        'type': "Section",
+        'subject': "IoT Architecture & Protocols/IoT Programming",
+        'instructor': "Eng. Moamen",
+        'location': "A 301",
+        'department': ["Software"],
+      },
+      {
+        'from': "09:00 AM",
+        'to': "10:40 AM",
+        'type': "Section",
+        'subject': "Encryption Algorithm",
+        'instructor': "Eng. Eman Osama",
+        'location': "A 201",
+        'department': ["Network"],
+      },
+      {
+        'from': "10:50 AM",
+        'to': "12:30 PM",
+        'type': "Section",
+        'subject': "Mobile Programming II",
+        'instructor': "Eng. Mohamed Hisham",
+        'location': "A 208",
+        'department': ["Software"],
+      },
+      {
+        'from': "10:50 AM",
+        'to': "12:30 PM",
+        'type': "Lecture",
+        'subject': "Encryption Algorithm",
+        'instructor': "Dr. Ramy",
+        'location': "A 302",
+        'department': ["Network"],
+      },
+      {
+        'from': "01:00 PM",
+        'to': "02:40 PM",
+        'type': "Follow-up",
+        'subject': "Artificial Intelligence",
+        'instructor': "Eng. Gehad",
+        'location': "A 101",
+        'department': ["Software", "Network"],
+      },
+      {
+        'from': "02:50 PM",
+        'to': "04:30 PM",
+        'type': "Follow-up",
+        'subject': "Signal Processing",
+        'instructor': "Eng. Moamen",
+        'location': "A 101",
+        'department': ["Software", "Network"],
+      },
+      {
+        'from': "02:50 PM",
+        'to': "04:30 PM",
+        'type': "Lecture",
+        'subject': "CCNA R&S IV",
+        'instructor': "Dr.mohamed hassan",
+        'location': "A 307",
+        'department': ["Network"],
+      },
+    ],
+    'Thursday': [],
+    'Friday': [],
+  }
+];
